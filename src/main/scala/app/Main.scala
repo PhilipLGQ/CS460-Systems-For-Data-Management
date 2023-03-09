@@ -21,20 +21,5 @@ object Main {
 
     val processor = new SimpleAnalytics()
     processor.init(rdd_ratings, rdd_movies)
-
-    val title_remap = processor.titlesGroupedById
-      .mapValues { movie_info =>
-        val (title, keywords) = movie_info.head
-        (title, keywords)
-      }
-    val rating_remap = processor.ratingsGroupedByYearByTitle
-      .map{case ((year, movie_id), ratinglist) => (year, (movie_id, ratinglist))}
-
-    val title_rating_join = title_remap.join(rating_remap)
-      .map{case (year, ((movie_id, ratinglist), (title, keywords))) =>
-        (year, (movie_id, ratinglist, keywords))}
-      .flatMap()
-
-    // return_value.take(10).foreach(println)
   }
 }
