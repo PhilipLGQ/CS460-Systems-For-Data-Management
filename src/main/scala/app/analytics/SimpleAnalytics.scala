@@ -11,8 +11,8 @@ class SimpleAnalytics() extends Serializable {
 
   private var ratingsPartitioner: HashPartitioner = null
   private var moviesPartitioner: HashPartitioner = null
-  var titlesGroupedById: RDD[(Int, List[(String, List[String])])] = null
-  var ratingsGroupedByYearByTitle: RDD[((Int, Int), List[(Int, Double)])] = null
+  private var titlesGroupedById: RDD[(Int, List[(String, List[String])])] = null
+  private var ratingsGroupedByYearByTitle: RDD[((Int, Int), List[(Int, Double)])] = null
 
   def init(
             ratings: RDD[(Int, Int, Option[Double], Double, Int)],
@@ -20,7 +20,6 @@ class SimpleAnalytics() extends Serializable {
           ): Unit = {
 
     def TimestampToYear(timestamp: Long): Int = {
-      //val year_format = new SimpleDateFormat("yyyy")
       val year_timestamp = new DateTime(timestamp * 1000L).toString("yyyy")
       year_timestamp.toInt
     }
@@ -42,7 +41,7 @@ class SimpleAnalytics() extends Serializable {
 
   def getNumberOfMoviesRatedEachYear: RDD[(Int, Int)] = {
     val return_value = ratingsGroupedByYearByTitle
-      .map { case ((year, movie_id), ratinglist) => (year, movie_id) }
+      .map { case ((year, movie_id), _) => (year, movie_id) }
       .groupByKey()
       .mapValues(_.toSet.size)
     return_value
