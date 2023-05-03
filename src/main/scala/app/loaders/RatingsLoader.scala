@@ -21,7 +21,6 @@ class RatingsLoader(sc : SparkContext, path : String) extends Serializable {
     val file = getClass.getResource(path).getPath
     val rdd_ratings = sc.textFile(file)
 
-    // Convert each line into a key-value pair RDD of ((user_id, movie_id), (rating, timestamp))
     val rdd_ratings_kv = rdd_ratings.map(line => {
       val values = line.split('|')
       val user_id = values(0).toInt
@@ -31,13 +30,13 @@ class RatingsLoader(sc : SparkContext, path : String) extends Serializable {
       ((user_id, movie_id), (rating, timestamp))
     })
 
-    // Use reduceByKey to find the max timestamp for each (user_id, movie_id) group
+    // find the max timestamp for each (user_id, movie_id) group
     val rdd_max_timestamp = rdd_ratings_kv.reduceByKey((a, b) => if (a._2 > b._2) a else b)
 
-    // Join the original RDD with the max timestamp RDD to get the old rating
+    // join the original RDD with the max timestamp RDD to get the old rating
     val rdd_joined = rdd_ratings_kv.join(rdd_max_timestamp)
 
-    // Map the resulting RDD to the desired format of tuple (user_id, movie_id, old_rating, new_rating, timestamp)
+    // map the resulting RDD to the desired format of tuple (user_id, movie_id, old_rating, new_rating, timestamp)
     val rdd_ratings_tuples = rdd_joined.map({ case ((user_id, movie_id), ((new_rating, timestamp), (old_rating, max_timestamp))) =>
       val old_rating_update = if (timestamp == max_timestamp) None else Some(old_rating)
       (user_id, movie_id, old_rating_update, new_rating, timestamp)

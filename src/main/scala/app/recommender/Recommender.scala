@@ -9,13 +9,15 @@ import org.apache.spark.rdd.RDD
 /**
  * Class for performing recommendations
  */
-class Recommender(sc: SparkContext,
+class Recommender(@transient sc: SparkContext,
                   index: LSHIndex,
                   ratings: RDD[(Int, Int, Option[Double], Double, Int)]) extends Serializable {
 
+  sc.setCheckpointDir("target")
   private val nn_lookup = new NNLookup(index)
-//  private val collaborativePredictor = new CollaborativeFiltering(10, 0.1, 0, 4)
-//  collaborativePredictor.init(ratings)
+  private val collaborativePredictor = new CollaborativeFiltering(
+    10, 0.1, 0, 4)
+  collaborativePredictor.init(ratings)
 
   private val baselinePredictor = new BaselinePredictor()
   baselinePredictor.init(ratings)
@@ -27,23 +29,43 @@ class Recommender(sc: SparkContext,
   def recommendBaseline(userId: Int, genre: List[String], K: Int): List[(Int, Double)] = {
     val similarMovies = nn_lookup.lookup(sc.parallelize(Seq(genre)))
     val userRatings = baselinePredictor.getUserRating
+
     val poolMovies = similarMovies.flatMap {
       case (_, movies) =>
         movies.filter {
-          case (movieId, _, keywords) =>
-            !userRatings.contains(userId, movieId) && keywords.nonEmpty }
+          case (movieId, _, keywords) => !userRatings.contains(userId, movieId) && keywords.nonEmpty }
     }
-
     val predictions = poolMovies
       .map {
-        case (movie_id, _, _) => (movie_id, baselinePredictor.predict(userId, movie_id)) }
-
-    val result = predictions.top(K)(Ordering.by(_._2)).toList
-    result
+        case (movieId, _, _) =>
+          val prediction = baselinePredictor.predict(userId, movieId)
+          (movieId, prediction)
+      }
+    predictions.top(K)(Ordering.by(_._2)).toList
   }
 
   /**
    * The same as recommendBaseline, but using the CollaborativeFiltering predictor
    */
-  def recommendCollaborative(userId: Int, genre: List[String], K: Int): List[(Int, Double)] = ???
+  def recommendCollaborative(userId: Int, genre: List[String], K: Int): List[(Int, Double)] = {
+    val similarMovies = nn_lookup.lookup(sc.parallelize(Seq(genre)))
+    val userRatings = collaborativePredictor.getUserRating
+//    val userPredictions = collaborativePredictor.getUserPrediction
+
+    val poolMovies = similarMovies.flatMap {
+      case (_, movies) =>
+        movies.filter {
+          case (movieId, _, keywords) => !userRatings.contains(userId, movieId) && keywords.nonEmpty}
+    }.map {
+      case (movieId, _, _) => movieId
+    }.distinct.collect()
+
+    val predictions = poolMovies.map {
+      case movieId =>
+        val prediction = collaborativePredictor.predict(userId, movieId)
+        (movieId, prediction)
+    }
+
+    predictions.sortBy(-_._2).take(K).toList
+  }
 }

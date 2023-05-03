@@ -20,7 +20,7 @@ class BaselinePredictor() extends Serializable {
       case ((rating1, count1), (rating2, count2)) => (rating1 + rating2, count1 + count2)
     }
 
-    // Compute the average rating by user
+    // average rating by user
     val averageRatingByUser = titleRatingCountUser.map {
       case ((user_id, _), (rating, count)) => (user_id, (rating, count))
     }.reduceByKey {

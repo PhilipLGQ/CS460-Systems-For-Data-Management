@@ -11,7 +11,11 @@ class CollaborativeFiltering(rank: Int,
 
   // NOTE: set the parameters according to the project description to get reproducible (deterministic) results.
   private val maxIterations = 20
+//  private var titleUserMovieLatestRating: RDD[(Int, Int, Double)] = null
+  private var userRatings: Map[(Int, Int), Double] = Map()
   private var model: MatrixFactorizationModel = null
+  private var ratings: RDD[Rating] = null
+//  private var userPredictions: Map[(Int, Int), Double] = Map()
 
   def init(ratingsRDD: RDD[(Int, Int, Option[Double], Double, Int)]): Unit = {
     val titleUserMovieLatestRating = ratingsRDD.flatMap {
@@ -26,9 +30,13 @@ class CollaborativeFiltering(rank: Int,
       case ((user_id, movie_id), (rating, _)) => (user_id, movie_id, rating)
     }
 
-    val ratings = titleUserMovieLatestRating.map {
+    ratings = titleUserMovieLatestRating.map {
       case (user_id, movie_id, rating) => Rating(user_id, movie_id, rating)
     }
+
+    userRatings = titleUserMovieLatestRating.map {
+      case (user_id, movie_id, rating) => ((user_id, movie_id), rating)
+    }.collectAsMap().toMap
 
     model = ALS.train(
       ratings = ratings,
@@ -39,6 +47,28 @@ class CollaborativeFiltering(rank: Int,
       seed = seed
     )
   }
+
+  def getUserRating: Map[(Int, Int), Double] = {
+    userRatings
+  }
+
+//  def getUserPrediction(userId: Int): Map[(Int, Int), Double] = {
+//    val userPredictions = ratings.map(rating => (rating.user, rating.product))
+//      .distinct.collect()
+//      .map {
+//        case (user_id, movie_id) =>
+//          val prediction = predict(user_id, movie_id)
+//          ((user_id, movie_id), prediction)
+//      }.toMap
+//  }
+
+//  def prefetch(userId: Int): Map[(Int, Int), Double] = {
+//    val predictions = titleUserMovieLatestRating.map {
+//      case (userId, movieId, _) =>
+//        ((userId, movieId), predict(userId, movieId))
+//    }.collectAsMap().toMap
+//    predictions
+//  }
 
   def predict(userId: Int, movieId: Int): Double = {
     model.predict(userId, movieId)
