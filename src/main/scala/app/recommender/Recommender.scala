@@ -9,7 +9,7 @@ import org.apache.spark.rdd.RDD
 /**
  * Class for performing recommendations
  */
-class Recommender(@transient sc: SparkContext,
+class Recommender(sc: SparkContext,
                   index: LSHIndex,
                   ratings: RDD[(Int, Int, Option[Double], Double, Int)]) extends Serializable {
 
@@ -34,14 +34,18 @@ class Recommender(@transient sc: SparkContext,
       case (_, movies) =>
         movies.filter {
           case (movieId, _, keywords) => !userRatings.contains(userId, movieId) && keywords.nonEmpty }
-    }
+    }.map {
+      case (movieId, _, _) => movieId
+    }.distinct.collect()
+
     val predictions = poolMovies
       .map {
-        case (movieId, _, _) =>
+        case movieId =>
           val prediction = baselinePredictor.predict(userId, movieId)
           (movieId, prediction)
       }
-    predictions.top(K)(Ordering.by(_._2)).toList
+
+    predictions.sortBy(-_._2).take(K).toList
   }
 
   /**
@@ -50,7 +54,6 @@ class Recommender(@transient sc: SparkContext,
   def recommendCollaborative(userId: Int, genre: List[String], K: Int): List[(Int, Double)] = {
     val similarMovies = nn_lookup.lookup(sc.parallelize(Seq(genre)))
     val userRatings = collaborativePredictor.getUserRating
-//    val userPredictions = collaborativePredictor.getUserPrediction
 
     val poolMovies = similarMovies.flatMap {
       case (_, movies) =>
