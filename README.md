@@ -7,7 +7,7 @@
 The aim of this project is to expose various programming paradigms that are
 featured in modern scale-out data processing frameworks. In this project, we are expected
 to implement data processing pipelines over Apache Spark in Scala. For a project overview and
-detailed task requirements, please refer to the *.pdf* version of the project description.
+detailed task requirements, please refer to the *ProjectDescription.pdf*.
 
 ## Documentation
 ### Prerequisites
